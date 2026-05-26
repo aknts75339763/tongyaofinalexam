@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🫁 肺癌CT深度学习分类系统 v3</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Serif+SC:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --surface: #111720;
+      --surface2: #161d29;
+      --border: #1e2d3d;
+      --accent: #e06c75;
+      --accent2: #61afef;
+      --accent3: #98c379;
+      --accent4: #e5c07b;
+      --text: #abb2bf;
+      --text-bright: #e6edf3;
+      --text-dim: #5c6370;
+      --mal: #e06c75;
+      --ben: #e5c07b;
+      --nor: #98c379;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      padding: 80px 40px 60px;
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 20% 50%, rgba(224,108,117,.08) 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 50% at 80% 20%, rgba(97,175,239,.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .header-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 40px;
+      align-items: center;
+    }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      letter-spacing: .05em;
+    }
+    .badge-red   { background: rgba(224,108,117,.15); color: var(--accent);  border: 1px solid rgba(224,108,117,.3); }
+    .badge-blue  { background: rgba(97,175,239,.12);  color: var(--accent2); border: 1px solid rgba(97,175,239,.25); }
+    .badge-green { background: rgba(152,195,121,.12); color: var(--accent3); border: 1px solid rgba(152,195,121,.25); }
+    .badge-gold  { background: rgba(229,192,123,.12); color: var(--accent4); border: 1px solid rgba(229,192,123,.25); }
+
+    h1 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 700;
+      color: var(--text-bright);
+      line-height: 1.2;
+      letter-spacing: -.01em;
+    }
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      margin-top: 12px;
+      font-size: 15px;
+      color: var(--text-dim);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: .03em;
+    }
+
+    .header-stat-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 160px;
+    }
+    .stat-chip .val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .stat-chip .lbl {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 2px;
+    }
+    .stat-chip.red  .val { color: var(--accent);  }
+    .stat-chip.blue .val { color: var(--accent2); }
+    .stat-chip.green .val { color: var(--accent3); }
+
+    /* ── LAYOUT ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    section { margin-bottom: 70px; }
+
+    .section-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+    }
+
+    /* ── COMPARISON TABLE ── */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+    .compare-table th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(30,45,61,.5);
+      vertical-align: top;
+    }
+    .compare-table tr:hover td { background: rgba(255,255,255,.02); }
+    .compare-table .feature-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .compare-table .v2-cell { color: var(--text-dim); }
+    .compare-table .v3-cell {
+      color: var(--accent3);
+      font-weight: 600;
+    }
+    .new-tag {
+      display: inline-block;
+      background: rgba(152,195,121,.15);
+      color: var(--accent3);
+      font-size: 9px;
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: .05em;
+    }
+
+    /* ── ARCHITECTURE DIAGRAM ── */
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px;
+      margin-top: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .arch-diagram::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(97,175,239,.05) 0%, transparent 70%);
+    }
+    .arch-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .arch-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 20px;
+      text-align: center;
+      min-width: 130px;
+    }
+    .arch-box .title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .arch-box .desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+    .arch-box.eff  { border-color: rgba(224,108,117,.4); }
+    .arch-box.cnx  { border-color: rgba(97,175,239,.4); }
+    .arch-box.gate { border-color: rgba(229,192,123,.4); background: rgba(229,192,123,.04); }
+    .arch-box.head { border-color: rgba(152,195,121,.4); background: rgba(152,195,121,.04); }
+    .arch-box.input { border-color: var(--border); }
+
+    .arch-arrow {
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text-dim);
+      font-size: 18px;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+    .arch-split {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .arch-spacer { width: 100%; height: 20px; }
+    .arch-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: 6px;
+      letter-spacing: .05em;
+    }
+
+    /* ── METRICS GRID ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .metric-card.red::after   { background: var(--accent); }
+    .metric-card.blue::after  { background: var(--accent2); }
+    .metric-card.green::after { background: var(--accent3); }
+    .metric-card.gold::after  { background: var(--accent4); }
+
+    .metric-card .name {
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text-dim);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .metric-card .value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin: 8px 0 4px;
+      line-height: 1;
+    }
+    .metric-card.red   .value { color: var(--accent);  }
+    .metric-card.blue  .value { color: var(--accent2); }
+    .metric-card.green .value { color: var(--accent3); }
+    .metric-card.gold  .value { color: var(--accent4); }
+
+    .metric-card .note {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* ── BUG REPORT ── */
+    .bug-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .bug-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid;
+      border-radius: 0 6px 6px 0;
+      padding: 16px 20px;
+    }
+    .bug-item.critical { border-left-color: var(--accent); }
+    .bug-item.warning  { border-left-color: var(--accent4); }
+    .bug-item.info     { border-left-color: var(--accent2); }
+
+    .bug-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .bug-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .bug-item.critical .bug-tag { background: rgba(224,108,117,.15); color: var(--accent); }
+    .bug-item.warning  .bug-tag { background: rgba(229,192,123,.15); color: var(--accent4); }
+    .bug-item.info     .bug-tag { background: rgba(97,175,239,.15);  color: var(--accent2); }
+
+    .bug-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .bug-cell {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .bug-desc {
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .bug-fix {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 14px;
+    }
+    .bug-fix-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--accent3);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .bug-fix code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      display: block;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── PIPELINE STEPS ── */
+    .pipeline {
+      display: flex;
+      gap: 0;
+      margin-top: 20px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .pipe-step {
+      flex: 1;
+      min-width: 120px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 16px 14px;
+      text-align: center;
+      position: relative;
+    }
+    .pipe-step:not(:last-child)::after {
+      content: '›';
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 18px;
+      z-index: 1;
+    }
+    .pipe-step:first-child { border-radius: 6px 0 0 6px; }
+    .pipe-step:last-child  { border-radius: 0 6px 6px 0; }
+
+    .pipe-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .pipe-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+    .pipe-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 30px 40px;
+      text-align: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: .05em;
+    }
+
+    /* ── responsive ── */
+    @media (max-width: 700px) {
+      header { padding: 50px 20px 40px; }
+      .header-grid { grid-template-columns: 1fr; }
+      .header-stat-box { flex-direction: row; }
+      main { padding: 40px 20px; }
+      .pipeline { flex-wrap: wrap; }
+      .pipe-step { min-width: 100px; }
+      .pipe-step:not(:last-child)::after { display: none; }
+    }
+
+    /* ── CODE BLOCK ── */
+    .code-block {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-top: 10px;
+      overflow-x: auto;
+    }
+    .code-block code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.7;
+      white-space: pre;
+      display: block;
+    }
+    .code-block .kw  { color: #c678dd; }
+    .code-block .fn  { color: #61afef; }
+    .code-block .st  { color: #98c379; }
+    .code-block .cm  { color: #5c6370; font-style: italic; }
+    .code-block .nb  { color: #e5c07b; }
+
+    /* Fade-in animation */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeIn .6s ease forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in:nth-child(1) { animation-delay: .1s; }
+    .fade-in:nth-child(2) { animation-delay: .2s; }
+    .fade-in:nth-child(3) { animation-delay: .3s; }
+    .fade-in:nth-child(4) { animation-delay: .4s; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header>
+  <div class="header-grid">
+    <div>
+      <div class="badge-row">
+        <span class="badge badge-red">PyTorch</span>
+        <span class="badge badge-blue">EfficientNet-B4</span>
+        <span class="badge badge-blue">ConvNeXt-Tiny</span>
+        <span class="badge badge-green">10-Fold CV</span>
+        <span class="badge badge-gold">v3</span>
+      </div>
+      <h1>🫁 肺癌CT<span>深度优化</span>分类系统</h1>
+      <p class="subtitle">// DualBackbone · AttentionGate · CutMix · RecallAwareEarlyStopping</p>
+    </div>
+    <div class="header-stat-box">
+      <div class="stat-chip red">
+        <div class="val">93%</div>
+        <div class="lbl">目标恶性灵敏度</div>
+      </div>
+      <div class="stat-chip blue">
+        <div class="val">10K</div>
+        <div class="lbl">折交叉验证</div>
+      </div>
+      <div class="stat-chip green">
+        <div class="val">5× TTA</div>
+        <div class="lbl">测试时增强</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ═══════════════ V2 vs V3 ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">版本对比</div>
+    <h2>v3 新增优化 vs v2</h2>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:6px;">本版本在 v2 基础上引入双骨干融合、CutMix 增强及召回优先早停机制</p>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>优化项</th>
+          <th>v2</th>
+          <th>v3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="feature-name">损失函数</td>
+          <td class="v2-cell">FocalLoss</td>
+          <td class="v3-cell">FocalLoss + CutMix混合增强 <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">模型骨干</td>
+          <td class="v2-cell">EfficientNet-B4 单模型</td>
+          <td class="v3-cell">EfficientNet-B4 + ConvNeXt-Tiny 双骨干 <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">特征融合</td>
+          <td class="v2-cell">—</td>
+          <td class="v3-cell">Attention Gate 加权融合 <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">学习率</td>
+          <td class="v2-cell">固定 warmup + cosine</td>
+          <td class="v3-cell">分层差异化 LR + OneCycleLR <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">恶性召回</td>
+          <td class="v2-cell">阈值搜索</td>
+          <td class="v3-cell">阈值搜索 + Recall-优先早停 <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">数据增强</td>
+          <td class="v2-cell">5种TTA</td>
+          <td class="v3-cell">5种TTA + CutMix <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">验证指标</td>
+          <td class="v2-cell">F1-macro 早停</td>
+          <td class="v3-cell">恶性F1-macro 联合早停 <span class="new-tag">NEW</span></td>
+        </tr>
+        <tr>
+          <td class="feature-name">输出</td>
+          <td class="v2-cell">CSV + JSON</td>
+          <td class="v3-cell">CSV + JSON + 完整可视化对比图 <span class="new-tag">NEW</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ ARCHITECTURE ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">模型架构</div>
+    <h2>双骨干融合网络</h2>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:6px;">~3000万参数 · EfficientNet-B4 (1792维) × ConvNeXt-Tiny (768维) → 共同映射至512维</p>
+
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <!-- Input -->
+        <div>
+          <div class="arch-box input">
+            <div class="title">CT 图像</div>
+            <div class="desc">380 × 380 × 3</div>
+          </div>
+          <div class="arch-label">INPUT</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <!-- Split -->
+        <div class="arch-split">
+          <div>
+            <div class="arch-box eff">
+              <div class="title">EfficientNet-B4</div>
+              <div class="desc">1792-d · 局部纹理</div>
+            </div>
+            <div class="arch-label">BACKBONE 1</div>
+          </div>
+          <div>
+            <div class="arch-box cnx">
+              <div class="title">ConvNeXt-Tiny</div>
+              <div class="desc">768-d · 全局上下文</div>
+            </div>
+            <div class="arch-label">BACKBONE 2</div>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <!-- Projection -->
+        <div>
+          <div class="arch-box" style="border-color:rgba(200,200,200,.2);">
+            <div class="title">LayerNorm + Linear</div>
+            <div class="desc">→ 512-d 各</div>
+          </div>
+          <div class="arch-label">PROJECTION</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <!-- Gate -->
+        <div>
+          <div class="arch-box gate">
+            <div class="title">AttentionGate</div>
+            <div class="desc">Softmax 加权融合</div>
+          </div>
+          <div class="arch-label">FUSION</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <!-- Head -->
+        <div>
+          <div class="arch-box head">
+            <div class="title">BN → FC(256) → FC(3)</div>
+            <div class="desc">Normal / Benign / Malignant</div>
+          </div>
+          <div class="arch-label">CLASSIFIER</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PIPELINE ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">训练流水线</div>
+    <h2>完整训练流程（10折）</h2>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 1</div>
+        <div class="pipe-title">安装 & 导入</div>
+        <div class="pipe-desc">timm, pytorch-grad-cam, umap-learn</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 2</div>
+        <div class="pipe-title">超参数配置</div>
+        <div class="pipe-desc">seed=42, 10折, 45epochs, img=380</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 3</div>
+        <div class="pipe-title">数据集 & 增强</div>
+        <div class="pipe-desc">CLAHE + 5种TTA变换</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 4</div>
+        <div class="pipe-title">FocalLoss + CutMix</div>
+        <div class="pipe-desc">gamma=2.0, alpha=1.0</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 5</div>
+        <div class="pipe-title">双骨干模型</div>
+        <div class="pipe-desc">AttentionGate 分层LR</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 6</div>
+        <div class="pipe-title">推理工具</div>
+        <div class="pipe-desc">TTA / MC-Dropout / 阈值优化</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 7</div>
+        <div class="pipe-title">主训练循环</div>
+        <div class="pipe-desc">召回优先早停 score=0.6·F1+0.4·Sens</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 8</div>
+        <div class="pipe-title">后处理</div>
+        <div class="pipe-desc">阈值优化 + 消融 + MC不确定性</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">CELL 9</div>
+        <div class="pipe-title">指标 & 可视化</div>
+        <div class="pipe-desc">6面板综合图 + JSON汇总</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ KEY METRICS ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">关键指标设计</div>
+    <h2>临床目标导向指标</h2>
+    <div class="metrics-grid">
+      <div class="metric-card red">
+        <div class="name">Target Mal. Sensitivity</div>
+        <div class="value">0.93</div>
+        <div class="note">恶性灵敏度目标：宁可误报不漏诊</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="name">Combined Early-Stop Score</div>
+        <div class="value">0.6·F1</div>
+        <div class="note">+ 0.4 × Mal.Sensitivity 联合评分</div>
+      </div>
+      <div class="metric-card green">
+        <div class="name">TTA Steps</div>
+        <div class="value">5×</div>
+        <div class="note">水平翻转 / 缩放裁剪 / ±5° 旋转</div>
+      </div>
+      <div class="metric-card gold">
+        <div class="name">MC-Dropout Runs</div>
+        <div class="value">30</div>
+        <div class="note">预测熵 > 80th pct → 人工复核标记</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="name">Threshold Search Range</div>
+        <div class="value">0.15–0.70</div>
+        <div class="note">步长 0.01，满足灵敏度后取最优 F1</div>
+      </div>
+      <div class="metric-card red">
+        <div class="name">CV Folds</div>
+        <div class="value">10</div>
+        <div class="note">StratifiedKFold，报告 95% CI</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ BUG REPORT ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">代码审查报告</div>
+    <h2>Bug 分析与修复建议</h2>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:6px;margin-bottom:20px;">共发现 1 个严重 Bug、3 个警告、2 个信息级建议</p>
+
+    <div class="bug-list">
+
+      <!-- BUG 1 - CRITICAL -->
+      <div class="bug-item critical">
+        <div class="bug-header">
+          <span class="bug-tag">严重</span>
+          <span class="bug-title">训练曲线可视化崩溃：ragged array</span>
+          <span class="bug-cell">Cell 9 · 可视化</span>
+        </div>
+        <p class="bug-desc">
+          不同折因 early stopping 在不同 epoch 停止，导致 <code>fold_histories</code> 中各 fold 的 <code>val_f1</code>、<code>val_mal_sens</code>、<code>val_loss</code> 列表长度不一致。对不等长嵌套列表直接调用 <code>np.mean(axis=0)</code> 会抛出 <code>ValueError</code>（NumPy ≥1.24）或得到错误结果（旧版），导致 Cell 9 整块崩溃，无法生成可视化图表。
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 修复方案</div>
+          <code><span class="cm"># 用最短折长度截断，再做均值（保守做法）</span>
+min_len = min(len(h['val_f1']) for h in fold_histories)
+avg_f1   = np.mean([h['val_f1'][:min_len]      for h in fold_histories], axis=0)
+avg_sens = np.mean([h['val_mal_sens'][:min_len] for h in fold_histories], axis=0)
+avg_loss = np.mean([h['val_loss'][:min_len]     for h in fold_histories], axis=0)
+ep = np.arange(1, min_len + 1)</code>
+        </div>
+      </div>
+
+      <!-- BUG 2 - WARNING -->
+      <div class="bug-item warning">
+        <div class="bug-header">
+          <span class="bug-tag">警告</span>
+          <span class="bug-title">compute_metrics() 中 labels/preds 未强制转换为 ndarray</span>
+          <span class="bug-cell">Cell 6 · 工具函数</span>
+        </div>
+        <p class="bug-desc">
+          部分调用处（如 Cell 7 训练循环内）传入的是 Python list，位运算 <code>&amp;</code> 在 list 上无效（语义变为按位与整型），可能产生静默错误的 tp/fn/fp/tn 值，影响 <code>mal_sensitivity</code> 计算。
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 修复方案</div>
+          <code><span class="kw">def</span> <span class="fn">compute_metrics</span>(labels, preds, probs):
+    labels = np.asarray(labels)   <span class="cm"># ← 添加这两行</span>
+    preds  = np.asarray(preds)    <span class="cm"># ← 确保 ndarray</span>
+    ...</code>
+        </div>
+      </div>
+
+      <!-- BUG 3 - WARNING -->
+      <div class="bug-item warning">
+        <div class="bug-header">
+          <span class="bug-tag">警告</span>
+          <span class="bug-title">Cell 9 依赖磁盘文件，跳过 Cell 8 则崩溃</span>
+          <span class="bug-cell">Cell 9 · 可视化</span>
+        </div>
+        <p class="bug-desc">
+          <code>df_unc_plot = pd.read_csv(...'uncertainty_analysis.csv')</code> 要求 Cell 8 已执行并成功写文件。若用户重启 kernel 仅运行 Cell 9，会抛出 <code>FileNotFoundError</code>。
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 修复方案</div>
+          <code><span class="cm"># Cell 8 结尾保留全局引用</span>
+df_unc_global = df_unc.copy()
+
+<span class="cm"># Cell 9 使用内存变量，回退到读文件</span>
+<span class="kw">try</span>:
+    df_unc_plot = df_unc_global
+<span class="kw">except</span> NameError:
+    df_unc_plot = pd.read_csv(os.path.join(OUTPUT_PATH, <span class="st">'uncertainty_analysis.csv'</span>))</code>
+        </div>
+      </div>
+
+      <!-- BUG 4 - WARNING -->
+      <div class="bug-item warning">
+        <div class="bug-header">
+          <span class="bug-tag">警告</span>
+          <span class="bug-title">不确定性数据集未启用 use_clahe=True</span>
+          <span class="bug-cell">Cell 8 · 不确定性量化</span>
+        </div>
+        <p class="bug-desc">
+          TTA 推理使用 <code>use_clahe=True</code>（CLAHE 对比度增强），而 MC-Dropout 不确定性评估中 <code>unc_ds</code> 使用默认 <code>use_clahe=False</code>，造成推理时预处理不一致，可能导致不确定性估计偏高。
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 修复方案</div>
+          <code>unc_ds = LungCTDataset(full_dataset, last_val_idx,
+                    val_transform, use_clahe=<span class="nb">True</span>)  <span class="cm"># 与TTA保持一致</span></code>
+        </div>
+      </div>
+
+      <!-- INFO 1 -->
+      <div class="bug-item info">
+        <div class="bug-header">
+          <span class="bug-tag">提示</span>
+          <span class="bug-title">WarmupCosineScheduler 存在潜在除零风险</span>
+          <span class="bug-cell">Cell 5 · 调度器</span>
+        </div>
+        <p class="bug-desc">
+          <code>scale</code> 计算中使用 <code>max(self.base_lrs)</code> 作为除数。极端情况下若某个参数组 LR 被手动设为 0，<code>max()</code> 仍为正数，无实际风险。但若所有 LR 均为 0（如错误配置），将导致除零。建议加 guard：
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 建议</div>
+          <code>base_max = max(self.base_lrs) <span class="kw">or</span> <span class="nb">1e-8</span>
+scale = self.min_lr / base_max + ...</code>
+        </div>
+      </div>
+
+      <!-- INFO 2 -->
+      <div class="bug-item info">
+        <div class="bug-header">
+          <span class="bug-tag">提示</span>
+          <span class="bug-title">Cell 8 重复生成 StratifiedKFold splits（轻微性能浪费）</span>
+          <span class="bug-cell">Cell 8 · 后处理</span>
+        </div>
+        <p class="bug-desc">
+          <code>list(skf.split(np.zeros(N), all_targets))[-1][1]</code> 重新生成全部10折切分，仅为获取最后一折验证索引。由于 random_state=42 固定，结果正确，但浪费计算。
+        </p>
+        <div class="bug-fix">
+          <div class="bug-fix-label">✦ 建议</div>
+          <code><span class="cm"># 在 Cell 7 末尾保存最后一折索引</span>
+last_val_idx_saved = val_idx  <span class="cm"># 循环最后一次的 val_idx</span>
+
+<span class="cm"># Cell 8 直接使用</span>
+last_val_idx = last_val_idx_saved</code>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ OUTPUTS ═══════════════ -->
+  <section class="fade-in">
+    <div class="section-title">输出文件</div>
+    <h2>训练结果输出清单</h2>
+    <table class="compare-table" style="margin-top:16px;">
+      <thead>
+        <tr>
+          <th>文件名</th>
+          <th>内容说明</th>
+          <th>Cell</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">per_fold_results.csv</code></td>
+          <td>每折详细指标（accuracy, F1, AUC, MalSens 等）</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 9</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">cv_summary.csv</code></td>
+          <td>10折均值 ± SD + 95% 置信区间</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 9</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">threshold_search.csv</code></td>
+          <td>恶性阈值扫描（0.15–0.70）sensitivity/specificity/F1</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 6</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">ablation_study.csv</code></td>
+          <td>默认阈值 vs 优化阈值消融对比</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 8</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">uncertainty_analysis.csv</code></td>
+          <td>全验证集 MC-Dropout 熵值 + 人工复核标记</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 8</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">fig_v3_results.png/pdf</code></td>
+          <td>6面板综合可视化（混淆矩阵/阈值曲线/箱线图/训练曲线/不确定性/对比柱）</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 9</td>
+        </tr>
+        <tr>
+          <td><code style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--accent2);">full_results_v3.json</code></td>
+          <td>完整 JSON 汇总（模型信息 + 配置 + 所有指标）</td>
+          <td style="color:var(--text-dim);font-size:12px;">Cell 9</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  🫁 Lung Cancer CT Classification v3 &nbsp;·&nbsp;
+  EfficientNet-B4 + ConvNeXt-Tiny + AttentionGate &nbsp;·&nbsp;
+  Built with PyTorch &amp; timm
+</footer>
+
+</body>
+</html>
